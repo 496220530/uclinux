@@ -34,7 +34,9 @@
 #include <linux/i2c/pcal6416a.h>
 #endif
 
-#if defined(CONFIG_MFD_STMPE)
+#if defined(CONFIG_MFD_STMPE) && \
+    (defined(CONFIG_ARCH_STM32F42) || defined(CONFIG_ARCH_STM32F43))
+#include <mach/exti.h>
 #include <linux/mfd/stmpe.h>
 #endif
 
@@ -143,6 +145,21 @@ static struct i2c_stm32_data i2c_stm32_data_dev3 = {
 	.i2c_clk	= 100000,
 };
 
+#if defined(CONFIG_MFD_STMPE) && \
+    (defined(CONFIG_ARCH_STM32F42) || defined(CONFIG_ARCH_STM32F43))
+
+/*
+ * Touch Panel Interrrupt (TP_INT1) through EXTI line interrupt.
+ * The TP_INT1 pin can be found in the schematic of STM32F429i
+ * Discovery (doc number: MB1075).
+ */
+#define STM32F4_IRQ_EXTI15_10		40
+
+#define STMPE811_INTERNAL_IRQS		8
+#define STMPE811_IRQ_BASE		(NR_IRQS - STMPE811_INTERNAL_IRQS)
+
+#endif /* CONFIG_MFD_STMPE */
+
 #endif	/* CONFIG_STM32_I2C3 */
 
 /*
@@ -224,11 +241,16 @@ void __init stm32_i2c_init(void)
 		};
 #endif
 
-#if defined(CONFIG_MFD_STMPE)
+#if defined(CONFIG_MFD_STMPE) && \
+    (defined(CONFIG_ARCH_STM32F42) || defined(CONFIG_ARCH_STM32F43))
 		static struct stmpe_platform_data stmpe811_ioe_info = {
-			.id             = 0,
-		        .blocks         = 0x5,
-			.irq_trigger    = 1,
+			.id             	= 0,
+		        .blocks         	= STMPE_BLOCK_TOUCHSCREEN,
+			.irq_trigger    	= IRQF_TRIGGER_FALLING,
+			.irq_base		= STMPE811_IRQ_BASE,
+			.exti_line		= STM32F2_EXTI_LINE_GPIO_15,
+			.exti_enable_int 	= stm32_exti_enable_int,
+			.exti_clear_pending	= stm32_exti_clear_pending
 		};
 #endif
 
@@ -247,11 +269,12 @@ void __init stm32_i2c_init(void)
 		},
 #endif
 
-#if defined(CONFIG_MFD_STMPE)
+#if defined(CONFIG_MFD_STMPE) && \
+    (defined(CONFIG_ARCH_STM32F42) || defined(CONFIG_ARCH_STM32F43))
 	        {
 			I2C_BOARD_INFO("stmpe811", 0x41),
 			.platform_data = &stmpe811_ioe_info,
-			.irq = 0,
+			.irq = STM32F4_IRQ_EXTI15_10,
 		}
 #endif
 
